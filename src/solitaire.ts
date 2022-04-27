@@ -31,6 +31,15 @@ export function is_pile_index(sol: SolIndex): boolean {
   return 500 <= sol && sol <= 1250
 }
 
+export type SolMove = number
+
+export function sol_move(orig: SolIndex, dest: SolIndex) {
+  return orig * 10000 + dest
+}
+
+export function sol_move_orig_dest(move: SolMove) {
+  return [Math.floor(move / 10000), move % 10000]
+}
 
 export class Solitaire {
 
