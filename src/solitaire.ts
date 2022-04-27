@@ -1,4 +1,5 @@
 import { deck, Card, Pile, card, card_suit, card_rank } from './types'
+import { solitaire_fen } from './format/fen'
 
 export type SolIndex = number
 
@@ -45,6 +46,10 @@ export class Solitaire {
 
 
     return new Solitaire(piles, holes)
+  }
+
+  get fen() {
+    return solitaire_fen(this)
   }
 
   get clone() {

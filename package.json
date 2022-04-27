@@ -1,7 +1,7 @@
 {
   "name": "cardstwo",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "lib/index.js",
   "type": "module",
   "repository": "https://github.com/eguneys/stedavon",
   "author": "Emre Guneyler <eguneys@gmail.com>",
