@@ -1,9 +1,56 @@
 import test from 'ava'
 
 import { Action, HeadsUpRound, action_with_who, One, Two, ontop_raise, Call, AllIn, Fold, Check } from '../headsup'
+
+
+test('headsup', t => {
+
+  let hu = HeadsUpRound.make(Two, 10, [100, 100])
+
+
+  t.is(hu.current_action, hu.preflop)
+  t.falsy(hu.settled)
+
+  t.truthy(hu.maybe_add_action(action_with_who(One, Call)))
+  t.truthy(hu.maybe_add_action(action_with_who(Two, Check)))
+  t.is(hu.current_action, hu.flop!)
+
+  t.is(hu.pot, 40)
+
+  t.deepEqual(hu.allowed_actions, [
+    action_with_who(One, Check),
+    action_with_who(One, ontop_raise(20)),
+    action_with_who(One, ontop_raise(60)),
+    action_with_who(One, ontop_raise(40)),
+    action_with_who(One, AllIn),
+    action_with_who(One, Fold)
+  ])
+
+  t.truthy(hu.maybe_add_action(action_with_who(One, Check)))
+
+})
+
+test('fold', t => {
+
+  let bb = new Action(Two,
+                      [100, 100],
+  10,
+  true)
+
+
+  t.truthy(bb.maybe_add_action(action_with_who(One, Fold)))
+
+  t.truthy(bb.settled_with_folds)
+  t.truthy(bb.settled)
+
+  t.is(bb.winner, Two)
+
+})
+
+
 test('action', t => {
 
-  let bb = new Action(One,
+  let bb = new Action(Two,
                       [100, 100],
   10,
   true)
@@ -49,5 +96,7 @@ test('action', t => {
   t.truthy(bb.maybe_add_action(action_with_who(Two, Check)))
 
   t.truthy(bb.settled)
+
+  t.falsy(bb.winner)
 
 })

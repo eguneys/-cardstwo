@@ -1,4 +1,4 @@
-import { deck, Card, Pile, card, card_suit, card_rank } from './types'
+import { _deck, Card, Pile, card, card_suit, card_rank } from './types'
 import { solitaire_fen } from './format/fen'
 
 export type SolIndex = number

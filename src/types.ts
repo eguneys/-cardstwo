@@ -28,7 +28,7 @@ export function is_rank(_: number): _ is Rank {
 export const suits: Array<Suit> = [1, 2, 3, 4]
 export const ranks: Array<Rank> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
-export const deck: Array<Card> = 
+export const _deck: Array<Card> = 
   suits.flatMap(suit =>
             ranks.map(rank =>
                       card(suit, rank)))
