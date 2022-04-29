@@ -68,8 +68,21 @@ export class Action implements HasLeftStacks {
       this.actions.push(action_with_who(who, SmallBlind))
       this.actions.push(action_with_who(who_next(who), BigBlind))
       this.left_stacks[who - 1] -= small_blind
-      this.left_stacks[who_next(who) - 1] -= small_blind * 2
+      this.left_stacks[who_next(who) - 1] -= this.big_blind
     }
+  }
+
+  get big_blind() {
+    return this.small_blind * 2
+  }
+
+  get bb_who() {
+    return who_next(this.who)
+  }
+
+  get bb_act_initial() {
+    return (this.current_who === this.bb_who) &&
+      this.actions.filter(_ => aww_who(_) === this.bb_who).length === 1
   }
 
   get pot() {
@@ -90,8 +103,27 @@ export class Action implements HasLeftStacks {
 
     let diff = current_bets - other_bets
 
-    if (diff < 0) {
-      let left = this.left_stacks[this.current_who - 1]
+    let left = this.left_stacks[this.current_who - 1]
+
+    if (diff === 0 && this.bb_act_initial) {
+
+      let raise = this.big_blind,
+        three_bet = raise * 3,
+        five_bet = raise * 5,
+        half_stack = left / 2
+
+      let raises = [raise, three_bet, five_bet, half_stack]
+      .filter(_ => _ < left)
+      .map(_ => action_with_who(this.current_who,
+                                ontop_raise(_)))
+
+      return [
+        action_with_who(this.current_who, Check),
+        ...raises,
+        action_with_who(this.current_who, AllIn),
+        action_with_who(this.current_who, Fold)
+      ]
+    } else if (diff < 0) {
       let call = -diff
       let raise = call * 2,
         three_bet = call * 3,
@@ -120,8 +152,14 @@ export class Action implements HasLeftStacks {
   }
 
   get settled() {
-    // TODO
-    return false
+    let bets = whos.map(_ => this.bets_of(_))
+    let bets_ok = bets.every(_ => _ === bets[0])
+
+    if (this.bb_act_initial) {
+      return false
+    } else {
+      return bets_ok
+    }
   }
 
   get settled_round_with_folds() {
