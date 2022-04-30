@@ -3,7 +3,7 @@ import { Solitaire } from '../solitaire'
 import { suits_uci, ranks_uci, uci_card, uci_pile } from './uci'
 
 import { Chips, WhoHasAction, ActionType, action_with_who, aww_who, aww_action_type, ActionWithWho, HeadsUpRoundPov, Action, Showdown } from '../headsup'
-import { att, att_action_type, att_on_top } from '../headsup'
+import { aww_att, att, att_action_type, att_on_top } from '../headsup'
 
 export function card_fen(card: Card) {
   return ranks_uci[card_rank(card) - 1] +
@@ -41,7 +41,7 @@ export function showdown_fen(showdown: Showdown) {
 }
 
 export function aww_fen(aww: ActionWithWho) {
-  let _att = aww_action_type(aww)
+  let _att = aww_att(aww)
   return [aww_who(aww), att_action_type(_att), att_on_top(_att)].join('.')
 }
 

@@ -72,8 +72,16 @@ export function action_with_who(who: WhoHasAction, type: ActionType) {
 export function aww_who(aww: ActionWithWho) {
   return (aww & who_mask) >> 28 as WhoHasAction
 }
-export function aww_action_type(aww: ActionWithWho) {
+export function aww_att(aww: ActionWithWho) {
   return (aww & aww_type_mask) as ActionType
+}
+
+export function aww_action_type(aww: ActionWithWho) {
+  return att_action_type(aww_att(aww))
+}
+
+export function aww_ontop(aww: ActionWithWho) {
+  return att_on_top(aww_att(aww))
 }
 
 export interface HasLeftStacks {
@@ -253,7 +261,7 @@ export class Action implements HasLeftStacks, MightHaveWinner {
   }
 
   get who_has_folded() {
-    return this.actions.filter(_ => att_action_type(aww_action_type(_)) === Fold)
+    return this.actions.filter(_ => aww_action_type(_) === Fold)
   }
 
   get settled_with_folds() {
@@ -270,7 +278,7 @@ export class Action implements HasLeftStacks, MightHaveWinner {
       let left = this.left_stacks[who - 1]
 
 
-      let _att = aww_action_type(aww)
+      let _att = aww_att(aww)
 
       let cost = 0
 
