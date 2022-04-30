@@ -1,4 +1,5 @@
 import { Card, _deck } from './types'
+import { fen_headsup_round_pov, headsup_round_pov_fen } from './format/fen'
 
 export type Middle = {
   hands: Array<[Card, Card]>,
@@ -35,12 +36,21 @@ export const Fold = 5
 export const AllIn = 6
 export const Raise = 7
 
-export function ontop_raise(on_top: number) {
-  return 7 + on_top
+export type ActionTypeOnTop = number
+
+const type_mask =  0xff00000
+const ontop_mask = 0x00fffff
+
+export function att(type: number, on_top: number = 0) {
+  return (type << 20) | on_top as ActionTypeOnTop
 }
 
-export function raise_ontop(raise: number) {
-  return raise - 7
+export function att_action_type(att: ActionTypeOnTop) {
+  return (att & type_mask) >> 20 as ActionType
+}
+
+export function att_on_top(att: ActionTypeOnTop) {
+  return (att & ontop_mask) as number
 }
 
 export type WhoHasAction = 1 | 2
@@ -49,18 +59,21 @@ export const One: WhoHasAction = 1
 export const Two: WhoHasAction = 2
 
 export function who_next(who: WhoHasAction) {
-  return who === 1 ? 2 : 1
+  return who === 1 ? 2 : 1 as WhoHasAction
 }
 
 export type ActionWithWho = number
 
-export function action_with_who(who: WhoHasAction, type: ActionType) { return who * 1000000 + type
+const aww_type_mask =  0x0fffffff
+const who_mask =   0xf0000000
+export function action_with_who(who: WhoHasAction, type: ActionType) { 
+  return (who << 28 | type) as ActionWithWho
 }
 export function aww_who(aww: ActionWithWho) {
-  return Math.floor(aww / 1000000) as WhoHasAction
+  return (aww & who_mask) >> 28 as WhoHasAction
 }
 export function aww_action_type(aww: ActionWithWho) {
-  return aww % 1000000 as ActionType
+  return (aww & aww_type_mask) as ActionType
 }
 
 export interface HasLeftStacks {
@@ -75,23 +88,51 @@ export const whos: Array<WhoHasAction> = [1, 2]
 
 export class Action implements HasLeftStacks, MightHaveWinner {
 
-  actions: Array<ActionWithWho> = []
+
+  static make_turn = (button: WhoHasAction,
+                      stacks: [Chips, Chips],
+  small_blind: Chips) => {
+    let actions: Array<ActionWithWho> = []
+    let left_stacks = stacks.slice(0) as [Chips, Chips]
+
+    return new Action(button,
+                      stacks,
+                      small_blind,
+                      actions, left_stacks)
+
+  }
+
+  static make_blinds = (button: WhoHasAction,
+                        stacks: [Chips, Chips],
+  small_blind: Chips) => {
+
+    let actions: Array<ActionWithWho> = []
+    let left_stacks: [Chips, Chips] = stacks.slice(0) as [Chips, Chips]
+
+    let who_sb = who_next(button),
+      who_bb = who_next(who_sb)
+
+    let big_blind = small_blind * 2
+
+    actions.push(action_with_who(who_sb, att(SmallBlind, small_blind)))
+    actions.push(action_with_who(who_bb, att(BigBlind, big_blind)))
+
+
+    left_stacks[who_sb - 1] -= small_blind
+    left_stacks[who_bb - 1] -= big_blind
+
+    return new Action(button,
+                     stacks,
+                     small_blind,
+                     actions,
+                     left_stacks)
+  }
 
   constructor(readonly button: WhoHasAction,
               readonly stacks: [Chips, Chips],
               readonly small_blind: Chips,
-              readonly post_blinds: boolean = false) {
-    this.left_stacks = stacks.slice(0) as [Chips, Chips]
-
-    if (this.post_blinds) {
-      let { who_sb,
-        who_bb } = this
-      this.actions.push(action_with_who(who_sb, SmallBlind))
-      this.actions.push(action_with_who(who_bb, BigBlind))
-      this.left_stacks[who_sb - 1] -= small_blind
-      this.left_stacks[who_bb - 1] -= this.big_blind
-    }
-  }
+              readonly actions: Array<ActionWithWho>,
+              readonly left_stacks: [Chips, Chips]) {}
 
   get who_sb() {
     return who_next(this.button)
@@ -118,6 +159,10 @@ export class Action implements HasLeftStacks, MightHaveWinner {
   get bb_act_initial() {
     return (this.current_who === this.bb_who) &&
       this.actions.filter(_ => aww_who(_) === this.bb_who).length === 1
+  }
+
+  get post_blinds() {
+    return !!this.actions.find(_ => aww_action_type(_) === BigBlind)
   }
 
   get turn_act_initial() {
@@ -158,13 +203,13 @@ export class Action implements HasLeftStacks, MightHaveWinner {
       let raises = [raise, three_bet, five_bet, half_stack]
       .filter(_ => _ < left)
       .map(_ => action_with_who(this.current_who,
-                                ontop_raise(_)))
+                                att(Raise, _)))
 
       return [
-        action_with_who(this.current_who, Check),
+        action_with_who(this.current_who, att(Check)),
         ...raises,
-        action_with_who(this.current_who, AllIn),
-        action_with_who(this.current_who, Fold)
+        action_with_who(this.current_who, att(AllIn, left)),
+        action_with_who(this.current_who, att(Fold))
       ]
     } else if (diff < 0) {
       let call = -diff
@@ -174,21 +219,21 @@ export class Action implements HasLeftStacks, MightHaveWinner {
         half_stack = left / 2
 
       if (left < call) {
-        return [action_with_who(this.current_who, AllIn)]
+        return [action_with_who(this.current_who, att(AllIn, left))]
       }
       let raises = [raise, three_bet, five_bet]
       .filter(_ => _ < left)
-      .map(_ => action_with_who(this.current_who, ontop_raise(_ + diff)))
+      .map(_ => action_with_who(this.current_who, att(Raise, _ + diff)))
 
       if (half_stack > call) {
-        raises.push(action_with_who(this.current_who, ontop_raise(half_stack + diff)))
+        raises.push(action_with_who(this.current_who, att(Raise, half_stack + diff)))
       }
 
       return [
-        action_with_who(this.current_who, Call),
+        action_with_who(this.current_who, att(Call, call)),
         ...raises,
-        action_with_who(this.current_who, AllIn),
-        action_with_who(this.current_who, Fold)
+        action_with_who(this.current_who, att(AllIn, left)),
+        action_with_who(this.current_who, att(Fold))
       ]
     }
     return []
@@ -208,14 +253,12 @@ export class Action implements HasLeftStacks, MightHaveWinner {
   }
 
   get who_has_folded() {
-    return this.actions.filter(_ => aww_action_type(_) === Fold)
+    return this.actions.filter(_ => att_action_type(aww_action_type(_)) === Fold)
   }
 
   get settled_with_folds() {
     return this.who_has_folded.length === 1
   }
-
-  readonly left_stacks: [Chips, Chips]
 
   maybe_add_action(aww: ActionWithWho) {
     let who = aww_who(aww)
@@ -227,19 +270,24 @@ export class Action implements HasLeftStacks, MightHaveWinner {
       let left = this.left_stacks[who - 1]
 
 
-      let action_type = aww_action_type(aww)
+      let _att = aww_action_type(aww)
 
       let cost = 0
+
+      let action_type = att_action_type(_att)
 
       if (action_type === Call) {
         cost = -diff
       } else if (action_type === AllIn) {
         cost = left
-      } else if (action_type > Raise) {
-        let ontop = raise_ontop(action_type)
+      } else if (action_type === Raise) {
+        let ontop = att_on_top(_att)
 
         cost = ontop - diff
       }
+
+      _att = att(action_type, cost)
+      aww = action_with_who(who, _att)
 
       this.left_stacks[who - 1] -= cost
       this.actions.push(aww)
@@ -278,10 +326,9 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
 
     let deck = _deck.slice(0)
     let _middle = middle(whos, deck)
-    let preflop = new Action(button,
+    let preflop = Action.make_blinds(button,
                             stacks,
-                            small_blind,
-                            true)
+                            small_blind)
 
     return new HeadsUpRound(button,
                             _middle,
@@ -320,6 +367,30 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
     return this.current_action.allowed_actions
   }
 
+  get povs() {
+    return whos.map(who => new HeadsUpRoundPov(
+      who,
+      {
+        hand: this.middle.hands[who - 1],
+        flop: this.flop ? this.middle.flop : undefined,
+        turn: this.turn ? this.middle.turn : undefined,
+        river: this.river ? this.middle.river : undefined
+      },
+      this.button,
+      this.small_blind,
+      this.stacks,
+      this.preflop,
+      this.flop,
+      this.turn,
+      this.river,
+      this.showdown
+    ))
+  }
+
+  pov_of(who: WhoHasAction) {
+    return this.povs[who - 1]
+  }
+
   constructor(
     readonly button: WhoHasAction,
     readonly middle: Middle,
@@ -355,21 +426,81 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
         if (!!this.river) {
           this.showdown = new Showdown(this.river.left_stacks, this.pot)
         } else if (!!this.turn) {
-          this.river = new Action(this.button,
-                                  this.turn.left_stacks,
-          this.small_blind)
+          this.river = Action.make_turn(this.button, this.turn.left_stacks, this.small_blind)
+
         } else if (!!this.flop) {
-          this.turn = new Action(this.button,
-                                this.flop.left_stacks,
-                                this.small_blind)
+          this.turn = Action.make_turn(this.button, this.flop.left_stacks, this.small_blind)
         } else {
-          this.flop = new Action(this.button,
-                                this.preflop.left_stacks,
-                                this.small_blind)
+          this.flop = Action.make_turn(this.button, this.preflop.left_stacks, this.small_blind)
         }
       }
       return true
     }
   }
 
+}
+
+export type MiddlePov = {
+  hand: [Card, Card],
+  flop?: [Card, Card, Card],
+  turn?: Card,
+  river?: Card
+}
+
+export class HeadsUpRoundPov {
+
+  static from_fen = (fen: string) => {
+    return fen_headsup_round_pov(fen)
+  }
+
+  get fen() {
+    return headsup_round_pov_fen(this)
+  }
+  
+  constructor(
+    readonly who: WhoHasAction,
+    readonly middle: MiddlePov,
+    readonly button: WhoHasAction,
+    readonly small_blind: Chips,
+    readonly stacks: [Chips, Chips],
+    readonly preflop: Action,
+    readonly flop?: Action,
+    readonly turn?: Action,
+    readonly river?: Action,
+    readonly showdown?: Showdown) { }
+
+    get current_action() {
+      return this.river ?? this.turn ?? this.flop ?? this.preflop
+    }
+
+    get left_stacks() {
+      return this.showdown?.left_stacks ?? this.current_action.left_stacks
+    }
+
+    get settled() {
+      return !!this.showdown || !!this.river?.settled
+    }
+
+    get winner() {
+      return this.showdown?.winner ?? this.current_action.winner
+    }
+
+    get allowed_actions() {
+      return this.current_action.allowed_actions
+    }
+
+    get who_sb() {
+      return who_next(this.button)
+    }
+
+    get who_bb() {
+      return who_next(this.who_sb)
+    }
+
+    get pot() {
+      return this.preflop.pot + 
+        (this.flop?.pot || 0) +
+        (this.turn?.pot || 0) +
+        (this.river?.pot || 0)
+    }
 }
