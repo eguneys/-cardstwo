@@ -156,7 +156,7 @@ export function fen_action(_: string): Action | undefined {
   let button = fen_who(_button)
   let stacks = _stacks.split(' ').map(_ => fen_chips(_)!) as [Chips, Chips]
   let small_blind = fen_chips(_small_blind)!
-  let actions = _actions.split(' ').map(_ => fen_aww(_)!)
+  let actions = !_actions ? [] : _actions.split(' ').map(_ => fen_aww(_)!)
   let left_stacks = _left_stacks.split(' ').map(_ => fen_chips(_)!) as [Chips, Chips]
 
   if (button) {

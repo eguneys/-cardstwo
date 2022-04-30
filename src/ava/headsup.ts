@@ -5,6 +5,17 @@ import { aww_who, aww_action_type, att_action_type, att_on_top } from '../headsu
 
 const ontop_raise = (on_top: number) => att(Raise, on_top)
 
+test('on flop', t => {
+  let hu = HeadsUpRound.make(Two, 10, [100, 100])
+
+  hu.maybe_add_action(action_with_who(One, att(Call, 10)))
+  hu.maybe_add_action(action_with_who(Two, att(Check)))
+
+  t.is(hu.current_who, One)
+
+  t.is(HeadsUpRoundPov.from_fen(hu.pov_of(One).fen).fen, hu.pov_of(One).fen)
+})
+
 test('fen', t => {
   let hu = HeadsUpRound.make(Two, 10, [100, 100])
 

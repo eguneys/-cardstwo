@@ -346,6 +346,9 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
   }
 
 
+  get current_who() {
+    return this.current_action.current_who
+  }
 
   get current_action() {
     return this.river ?? this.turn ?? this.flop ?? this.preflop
@@ -477,6 +480,10 @@ export class HeadsUpRoundPov {
     readonly river?: Action,
     readonly showdown?: Showdown) { }
 
+    get current_who() {
+      return this.current_action.current_who
+    }
+
     get current_action() {
       return this.river ?? this.turn ?? this.flop ?? this.preflop
     }
@@ -511,4 +518,68 @@ export class HeadsUpRoundPov {
         (this.turn?.pot || 0) +
         (this.river?.pot || 0)
     }
+}
+
+export type Timestamp = number
+
+
+export class HeadsUpGame {
+
+
+  static make = (small_blind: Chips) => {
+
+    let stacks = whos
+    .map(_ => 100 * small_blind) as [Chips, Chips]
+
+    let fold_after = Date.now() + 35000
+    let turn = 1
+    let round = HeadsUpRound.make(
+      turn % 2 as WhoHasAction,
+      small_blind,
+      stacks)
+
+      return new HeadsUpGame(small_blind,
+                             stacks,
+                             fold_after,
+                             turn,
+                             round)
+  }
+
+
+  round: HeadsUpRound
+  turn: number
+  fold_after: Timestamp
+
+  get button() {
+    return this.turn % 2 as WhoHasAction
+  }
+
+  constructor(
+    readonly small_blind: Chips,
+    readonly stacks: [Chips, Chips],
+    fold_after: Timestamp,
+    turn: number,
+    round: HeadsUpRound) {
+      this.fold_after = fold_after
+      this.turn = turn
+      this.round = round
+  }
+
+
+  apply(aww: ActionWithWho) {
+    if (this.round) {
+      let res = this.round.maybe_add_action(aww)
+      
+      if (res) {
+        this.fold_after = Date.now() + 35000
+        if (this.round.winner) {
+          this.turn++
+          this.round = HeadsUpRound.make(
+            this.button,
+            this.small_blind,
+            this.round.left_stacks)
+        }
+      }
+    }
+  }
 }
