@@ -226,8 +226,11 @@ export class Action implements HasLeftStacks, MightHaveWinner {
         five_bet = call * 5,
         half_stack = left / 2
 
-      if (left < call) {
-        return [action_with_who(this.current_who, att(AllIn, left))]
+      if (left <= call) {
+        return [
+          action_with_who(this.current_who, att(AllIn, left)),
+          action_with_who(this.current_who, att(Fold))
+        ]
       }
       let raises = [raise, three_bet, five_bet]
       .filter(_ => _ < left)
@@ -251,7 +254,9 @@ export class Action implements HasLeftStacks, MightHaveWinner {
     let bets = whos.map(_ => this.bets_of(_))
     let bets_ok = bets.every(_ => _ === bets[0])
 
-    if (this.settled_with_folds) {
+    if (this.settled_with_allins) {
+      return true
+    } else if (this.settled_with_folds) {
       return true
     } else if (this.bb_act_initial) {
       return false
@@ -264,8 +269,16 @@ export class Action implements HasLeftStacks, MightHaveWinner {
     return this.actions.filter(_ => aww_action_type(_) === Fold)
   }
 
+  get who_has_allin() {
+    return this.actions.filter(_ => aww_action_type(_) === AllIn)
+  }
+
   get settled_with_folds() {
     return this.who_has_folded.length === 1
+  }
+
+  get settled_with_allins() {
+    return this.who_has_allin.length === 2
   }
 
   maybe_add_action(aww: ActionWithWho) {
@@ -433,8 +446,11 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
 
   maybe_add_action(aww: ActionWithWho) {
     if (this.current_action.maybe_add_action(aww)) {
-      if (this.current_action.settled) {
-        if (!!this.river) {
+      if (this.current_action.winner) {
+      } else if (this.current_action.settled) {
+        if (this.current_action.settled_with_allins) {
+          this.showdown = new Showdown(this.current_action.left_stacks, this.pot)
+        } else if (!!this.river) {
           this.showdown = new Showdown(this.river.left_stacks, this.pot)
         } else if (!!this.turn) {
           this.river = Action.make_turn(this.button, this.turn.left_stacks, this.small_blind)
@@ -522,11 +538,18 @@ export class HeadsUpRoundPov {
 
 export type Timestamp = number
 
+export interface Scheduler {
+  schedule(fn: () => void, ms: number): void;
+}
+
+export type OnHandler = () => void;
 
 export class HeadsUpGame {
 
 
-  static make = (small_blind: Chips) => {
+  static make = (scheduler: Scheduler,
+                 on_new_round: OnHandler,
+                 small_blind: Chips) => {
 
     let stacks = whos
     .map(_ => 100 * small_blind) as [Chips, Chips]
@@ -538,7 +561,9 @@ export class HeadsUpGame {
       small_blind,
       stacks)
 
-      return new HeadsUpGame(small_blind,
+      return new HeadsUpGame(scheduler,
+                             on_new_round,
+                             small_blind,
                              stacks,
                              fold_after,
                              turn,
@@ -555,6 +580,8 @@ export class HeadsUpGame {
   }
 
   constructor(
+    readonly scheduler: Scheduler,
+    readonly on_new_round: OnHandler,
     readonly small_blind: Chips,
     readonly stacks: [Chips, Chips],
     fold_after: Timestamp,
@@ -573,13 +600,23 @@ export class HeadsUpGame {
       if (res) {
         this.fold_after = Date.now() + 35000
         if (this.round.winner) {
-          this.turn++
-          this.round = HeadsUpRound.make(
-            this.button,
-            this.small_blind,
-            this.round.left_stacks)
+          this.schedule_new_round()
         }
       }
     }
+  }
+
+  new_round_now = () => {
+    this.turn++;
+    this.round = HeadsUpRound.make(
+      this.button,
+      this.small_blind,
+      this.round.left_stacks)
+
+    this.on_new_round()
+  }
+
+  schedule_new_round() {
+    this.scheduler.schedule(this.new_round_now, 5000)
   }
 }

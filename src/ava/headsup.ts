@@ -5,6 +5,40 @@ import { aww_who, aww_action_type, att_action_type, att_on_top } from '../headsu
 
 const ontop_raise = (on_top: number) => att(Raise, on_top)
 
+test('all in showdown', t => {
+  let hu = HeadsUpRound.make(Two, 10, [100, 100])
+
+  hu.maybe_add_action(action_with_who(One, att(AllIn, 90)))
+
+  t.deepEqual(hu.allowed_actions, [
+    action_with_who(Two, att(AllIn, 80)),
+    action_with_who(Two, att(Fold))
+  ])
+
+  t.falsy(hu.maybe_add_action(action_with_who(Two, att(Call, 80))))
+
+  hu.maybe_add_action(action_with_who(Two, att(AllIn, 80)))
+
+
+  t.truthy(hu.showdown)
+  t.is(hu.winner!, One)
+  t.truthy(hu.settled)
+
+})
+
+test('fold round', t => {
+
+  let hu = HeadsUpRound.make(Two, 10, [100, 100])
+
+  hu.maybe_add_action(action_with_who(One, att(Call, 10)))
+  hu.maybe_add_action(action_with_who(Two, att(Fold)))
+
+  t.is(hu.winner, One)
+
+  t.deepEqual(hu.allowed_actions, [ ])
+
+})
+
 test('on flop', t => {
   let hu = HeadsUpRound.make(Two, 10, [100, 100])
 
