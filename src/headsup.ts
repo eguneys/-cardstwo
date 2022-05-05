@@ -557,7 +557,7 @@ export class HeadsUpGame {
     let fold_after = Date.now() + 35000
     let turn = 1
     let round = HeadsUpRound.make(
-      turn % 2 as WhoHasAction,
+      ((turn + 1) % 2) + 1 as WhoHasAction,
       small_blind,
       stacks)
 
@@ -576,7 +576,7 @@ export class HeadsUpGame {
   fold_after: Timestamp
 
   get button() {
-    return this.turn % 2 as WhoHasAction
+    return ((this.turn + 1) % 2) + 1 as WhoHasAction
   }
 
   constructor(

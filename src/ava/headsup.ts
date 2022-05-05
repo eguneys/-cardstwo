@@ -1,9 +1,33 @@
 import test from 'ava'
 
-import { HeadsUpRoundPov, Action, HeadsUpRound, att, action_with_who, One, Two, Raise, Call, AllIn, Fold, Check } from '../headsup'
+import { HeadsUpGame, HeadsUpRoundPov, Action, HeadsUpRound, att, action_with_who, One, Two, Raise, Call, AllIn, Fold, Check } from '../headsup'
 import { aww_who, aww_action_type, att_action_type, att_on_top } from '../headsup'
 
 const ontop_raise = (on_top: number) => att(Raise, on_top)
+
+const scheduler = {
+  schedule(fn: () => void, ms: number) {
+    setTimeout(fn, 0)
+  }
+}
+
+test('game new round', t => {
+  return new Promise(resolve => {
+
+    function on_new_round() {
+      t.truthy(res.round.pov_of(1).preflop)
+      t.truthy(HeadsUpRoundPov.from_fen(res.round.pov_of(1).fen).preflop)
+      resolve()
+    }
+    let res = HeadsUpGame.make(scheduler, on_new_round, 1)
+
+    res.apply(action_with_who(Two, att(AllIn, 99)))
+    res.apply(action_with_who(One, att(AllIn, 98)))
+
+  })
+})
+
+
 
 test('all in showdown', t => {
   let hu = HeadsUpRound.make(Two, 10, [100, 100])
