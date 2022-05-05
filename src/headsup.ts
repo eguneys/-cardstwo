@@ -89,7 +89,7 @@ export interface HasLeftStacks {
 }
 
 export interface MightHaveWinner {
-  winner?: WhoHasAction
+  winner?: Array<WhoHasAction>
 }
 
 export const whos: Array<WhoHasAction> = [1, 2]
@@ -152,7 +152,7 @@ export class Action implements HasLeftStacks, MightHaveWinner {
 
   get winner() {
     if (this.settled_with_folds) {
-      return who_next(aww_who(this.who_has_folded[0]))
+      return [who_next(aww_who(this.who_has_folded[0]))]
     }
   }
 
@@ -194,6 +194,9 @@ export class Action implements HasLeftStacks, MightHaveWinner {
   }
 
   get allowed_actions(): Array<ActionWithWho> {
+    if (this.settled) {
+      return []
+    }
     let current_bets = this.bets_of(this.current_who)
     let other_bets = this.bets_of(who_next(this.current_who))
 
@@ -325,16 +328,27 @@ export class Action implements HasLeftStacks, MightHaveWinner {
 
 export class Showdown implements HasLeftStacks, MightHaveWinner {
 
-  readonly left_stacks: [Chips, Chips]
-
   constructor(readonly stacks: [Chips, Chips],
-              readonly pot: Chips) {
-    // TODO
-    this.left_stacks = stacks.slice(0) as [Chips, Chips]
+              readonly pot: Chips) {}
+
+
+  get left_stacks() {
+    let { shares } = this
+    return this.stacks.map((_, i) => _ + shares[i]) as [Chips, Chips]
+  }
+
+  get shares() {
+
+    let nb = this.winner.length
+
+    let share = this.pot / nb
+
+
+    return whos.map(_ => this.winner.includes(_) ? share : 0) 
   }
 
   get winner() {
-    return One
+    return [One]
   }
 }
 
@@ -544,7 +558,7 @@ export interface Scheduler {
 
 export type OnHandler = () => void;
 
-export class HeadsUpGame {
+export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
 
 
   static make = (scheduler: Scheduler,
@@ -579,6 +593,18 @@ export class HeadsUpGame {
     return ((this.turn + 1) % 2) + 1 as WhoHasAction
   }
 
+  get left_stacks() {
+    return this.round.left_stacks
+  }
+
+  get winner() {
+    let total = this.stacks.reduce((a, b) => a + b)
+    let res = this.round.left_stacks.findIndex((_: Chips) => _ === total) + 1
+    if (res > 0) {
+      return [res as WhoHasAction]
+    }
+  }
+
   constructor(
     readonly scheduler: Scheduler,
     readonly on_new_round: OnHandler,
@@ -599,7 +625,8 @@ export class HeadsUpGame {
       
       if (res) {
         this.fold_after = Date.now() + 35000
-        if (this.round.winner) {
+        if (this.winner) {
+        } else if (this.round.winner) {
           this.schedule_new_round()
         }
       }

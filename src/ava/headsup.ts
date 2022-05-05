@@ -11,18 +11,19 @@ const scheduler = {
   }
 }
 
-test('game new round', t => {
+test.only('game new round', t => {
   return new Promise(resolve => {
 
     function on_new_round() {
       t.truthy(res.round.pov_of(1).preflop)
       t.truthy(HeadsUpRoundPov.from_fen(res.round.pov_of(1).fen).preflop)
+
       resolve()
     }
     let res = HeadsUpGame.make(scheduler, on_new_round, 1)
 
     res.apply(action_with_who(Two, att(AllIn, 99)))
-    res.apply(action_with_who(One, att(AllIn, 98)))
+    res.apply(action_with_who(One, att(Fold, 0)))
 
   })
 })
@@ -45,7 +46,7 @@ test('all in showdown', t => {
 
 
   t.truthy(hu.showdown)
-  t.is(hu.winner!, One)
+  t.deepEqual(hu.winner!, [One])
   t.truthy(hu.settled)
 
 })
@@ -57,7 +58,7 @@ test('fold round', t => {
   hu.maybe_add_action(action_with_who(One, att(Call, 10)))
   hu.maybe_add_action(action_with_who(Two, att(Fold)))
 
-  t.is(hu.winner, One)
+  t.deepEqual(hu.winner, [One])
 
   t.deepEqual(hu.allowed_actions, [ ])
 
@@ -120,7 +121,7 @@ test('fold', t => {
   t.truthy(bb.settled_with_folds)
   t.truthy(bb.settled)
 
-  t.is(bb.winner, Two)
+  t.deepEqual(bb.winner, [Two])
 
 })
 
