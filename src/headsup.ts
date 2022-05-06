@@ -169,6 +169,10 @@ export class Action implements HasLeftStacks, MightHaveWinner {
       this.actions.filter(_ => aww_who(_) === this.bb_who).length === 1
   }
 
+  get button_has_acted() {
+    return this.actions.filter(_ => aww_who(_) === this.button).length >= 1
+  }
+
   get post_blinds() {
     return !!this.actions.find(_ => aww_action_type(_) === BigBlind)
   }
@@ -191,6 +195,11 @@ export class Action implements HasLeftStacks, MightHaveWinner {
     } else {
       return who_next(aww_who(this.last))
     }
+  }
+
+  get live_hands(): Array<WhoHasAction> {
+    return whos.filter(_ => !this.actions.filter(a => aww_who(a) === _)
+                       .find(a => aww_action_type(a) === Fold))
   }
 
   get allowed_actions(): Array<ActionWithWho> {
@@ -257,7 +266,9 @@ export class Action implements HasLeftStacks, MightHaveWinner {
     let bets = whos.map(_ => this.bets_of(_))
     let bets_ok = bets.every(_ => _ === bets[0])
 
-    if (this.settled_with_allins) {
+    if (!this.button_has_acted) {
+      return false
+    } else if (this.settled_with_allins) {
       return true
     } else if (this.settled_with_folds) {
       return true
@@ -329,7 +340,8 @@ export class Action implements HasLeftStacks, MightHaveWinner {
 export class Showdown implements HasLeftStacks, MightHaveWinner {
 
   constructor(readonly stacks: [Chips, Chips],
-              readonly pot: Chips) {}
+              readonly pot: Chips,
+              readonly winner: Array<WhoHasAction>) {}
 
 
   get left_stacks() {
@@ -345,10 +357,6 @@ export class Showdown implements HasLeftStacks, MightHaveWinner {
 
 
     return whos.map(_ => this.winner.includes(_) ? share : 0) 
-  }
-
-  get winner() {
-    return [One]
   }
 }
 
@@ -460,12 +468,13 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
 
   maybe_add_action(aww: ActionWithWho) {
     if (this.current_action.maybe_add_action(aww)) {
-      if (this.current_action.winner) {
-      } else if (this.current_action.settled) {
-        if (this.current_action.settled_with_allins) {
-          this.showdown = new Showdown(this.current_action.left_stacks, this.pot)
+      if (this.current_action.settled) {
+        if (this.current_action.settled_with_folds) {
+          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.current_action.live_hands)
+        } else if (this.current_action.settled_with_allins) {
+          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, [])
         } else if (!!this.river) {
-          this.showdown = new Showdown(this.river.left_stacks, this.pot)
+          this.showdown = new Showdown(this.river.left_stacks, this.pot, [])
         } else if (!!this.turn) {
           this.river = Action.make_turn(this.button, this.turn.left_stacks, this.small_blind)
 
@@ -639,6 +648,7 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
       this.button,
       this.small_blind,
       this.round.left_stacks)
+    this.fold_after = Date.now() + 35000
 
     this.on_new_round()
   }

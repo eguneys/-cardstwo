@@ -11,12 +11,14 @@ const scheduler = {
   }
 }
 
-test.only('game new round', t => {
+test('game new round', t => {
   return new Promise(resolve => {
 
     function on_new_round() {
       t.truthy(res.round.pov_of(1).preflop)
       t.truthy(HeadsUpRoundPov.from_fen(res.round.pov_of(1).fen).preflop)
+
+      t.deepEqual(res.round.left_stacks, [97, 100])
 
       resolve()
     }
@@ -48,6 +50,8 @@ test('all in showdown', t => {
   t.truthy(hu.showdown)
   t.deepEqual(hu.winner!, [One])
   t.truthy(hu.settled)
+
+  t.deepEqual(hu.left_stacks, [200, 0])
 
 })
 

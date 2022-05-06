@@ -31,12 +31,14 @@ function maybe<A>(_: A | undefined, fn: (_: A) => string) {
 
 export function showdown_fen(showdown: Showdown) {
 
-  let { stacks, pot } = showdown
+  let { stacks, pot, winner } = showdown
 
   let _stacks = stacks.join(' '),
-    _pot = pot
+    _pot = pot,
+    _winner = winner.join(' ')
 
-  return [_stacks, _pot].join('/')
+
+  return [_stacks, _pot, _winner].join('/')
 
 }
 
@@ -169,12 +171,14 @@ export function fen_action(_: string): Action | undefined {
 }
 
 export function fen_showdown(fen: string) {
-  let [_stacks, _pot] = fen.split('/')
+  let [_stacks, _pot, _winner] = fen.split('/')
 
   let stacks = _stacks.split(' ').map(_ => fen_chips(_)!) as [Chips, Chips],
     pot = fen_chips(_pot)!
 
-  return new Showdown(stacks, pot)
+  let winner = _winner.split(' ').map(_ => fen_who(_)!)
+
+  return new Showdown(stacks, pot, winner)
 }
 
 export function fen_headsup_round_pov(fen: string) {
