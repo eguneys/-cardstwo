@@ -213,7 +213,7 @@ export class Action implements HasLeftStacks, MightHaveWinner {
 
     let left = this.left_stacks[this.current_who - 1]
 
-    if (diff === 0 && (this.bb_act_initial || this.turn_act_initial)) {
+    if (diff === 0 && (this.bb_act_initial || this.turn_act_initial || !this.button_has_acted)) {
 
       let raise = this.big_blind,
         three_bet = raise * 3,

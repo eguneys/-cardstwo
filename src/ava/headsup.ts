@@ -1,7 +1,7 @@
 import test from 'ava'
 
 import { HeadsUpGame, HeadsUpRoundPov, Action, HeadsUpRound, att, action_with_who, One, Two, Raise, Call, AllIn, Fold, Check } from '../headsup'
-import { aww_who, aww_action_type, att_action_type, att_on_top } from '../headsup'
+import { aww_who, aww_action_type, att_action_type, aww_ontop } from '../headsup'
 
 const ontop_raise = (on_top: number) => att(Raise, on_top)
 
@@ -30,6 +30,28 @@ test('game new round', t => {
   })
 })
 
+
+test('check on flop', t => {
+
+  let hu = HeadsUpRound.make(Two, 10, [1000, 1000])
+
+  hu.maybe_add_action(action_with_who(One, att(Raise, 40)))
+
+  hu.maybe_add_action(action_with_who(Two, att(Call, 40)))
+
+  t.is(hu.flop, hu.current_action)
+
+  t.truthy(hu.maybe_add_action(action_with_who(One, att(Check, 0))))
+
+  t.deepEqual(hu.allowed_actions.filter(_ => aww_action_type(_) !== Raise), [
+    action_with_who(Two, att(Check, 0)),
+    action_with_who(Two, att(AllIn, 940)),
+    action_with_who(Two, att(Fold))
+  ])
+
+
+
+})
 
 
 test('all in showdown', t => {
