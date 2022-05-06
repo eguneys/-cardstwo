@@ -14,6 +14,9 @@ const scheduler = {
 test('game new round', t => {
   return new Promise(resolve => {
 
+    function on_new_action() {
+    }
+
     function on_new_round() {
       t.truthy(res.round.pov_of(1).preflop)
       t.truthy(HeadsUpRoundPov.from_fen(res.round.pov_of(1).fen).preflop)
@@ -22,7 +25,7 @@ test('game new round', t => {
 
       resolve()
     }
-    let res = HeadsUpGame.make(scheduler, on_new_round, 1)
+    let res = HeadsUpGame.make(scheduler, on_new_action, on_new_round, 1)
 
     res.apply(action_with_who(Two, att(AllIn, 99)))
     res.apply(action_with_who(One, att(Fold, 0)))
@@ -31,55 +34,63 @@ test('game new round', t => {
 })
 
 
-test('check on flop', t => {
+test('check on flop', async t => {
+  return new Promise(resolve => {
+    let hu = HeadsUpRound.make(scheduler, on_new_action, Two, 10, [1000, 1000])
 
-  let hu = HeadsUpRound.make(Two, 10, [1000, 1000])
+    hu.maybe_add_action(action_with_who(One, att(Raise, 40)))
 
-  hu.maybe_add_action(action_with_who(One, att(Raise, 40)))
+    hu.maybe_add_action(action_with_who(Two, att(Call, 40)))
 
-  hu.maybe_add_action(action_with_who(Two, att(Call, 40)))
+    t.is(hu.preflop, hu.current_action)
 
-  t.is(hu.flop, hu.current_action)
+    function on_new_action() {
+      t.is(hu.flop, hu.current_action)
 
-  t.truthy(hu.maybe_add_action(action_with_who(One, att(Check, 0))))
+      t.truthy(hu.maybe_add_action(action_with_who(One, att(Check, 0))))
 
-  t.deepEqual(hu.allowed_actions.filter(_ => aww_action_type(_) !== Raise), [
-    action_with_who(Two, att(Check, 0)),
-    action_with_who(Two, att(AllIn, 940)),
-    action_with_who(Two, att(Fold))
-  ])
-
-
-
+      t.deepEqual(hu.allowed_actions.filter(_ => aww_action_type(_) !== Raise), [
+        action_with_who(Two, att(Check, 0)),
+        action_with_who(Two, att(AllIn, 940)),
+        action_with_who(Two, att(Fold))
+      ])
+      resolve()
+    }
+  })
 })
 
 
 test('all in showdown', t => {
-  let hu = HeadsUpRound.make(Two, 10, [100, 100])
+  return new Promise(resolve => {
+    let hu = HeadsUpRound.make(scheduler, on_new_action, Two, 10, [100, 100])
 
-  hu.maybe_add_action(action_with_who(One, att(AllIn, 90)))
+    hu.maybe_add_action(action_with_who(One, att(AllIn, 90)))
 
-  t.deepEqual(hu.allowed_actions, [
-    action_with_who(Two, att(AllIn, 80)),
-    action_with_who(Two, att(Fold))
-  ])
+    t.deepEqual(hu.allowed_actions, [
+      action_with_who(Two, att(AllIn, 80)),
+      action_with_who(Two, att(Fold))
+    ])
 
-  t.falsy(hu.maybe_add_action(action_with_who(Two, att(Call, 80))))
+    t.falsy(hu.maybe_add_action(action_with_who(Two, att(Call, 80))))
 
-  hu.maybe_add_action(action_with_who(Two, att(AllIn, 80)))
+    hu.maybe_add_action(action_with_who(Two, att(AllIn, 80)))
 
+    function on_new_action() {
 
-  t.truthy(hu.showdown)
-  t.deepEqual(hu.winner!, [One])
-  t.truthy(hu.settled)
+      t.truthy(hu.showdown)
+      t.deepEqual(hu.winner!, [One])
+      t.truthy(hu.settled)
 
-  t.deepEqual(hu.left_stacks, [200, 0])
-
+      t.deepEqual(hu.left_stacks, [200, 0])
+      resolve()
+    }
+  })
 })
 
 test('fold round', t => {
 
-  let hu = HeadsUpRound.make(Two, 10, [100, 100])
+  function on_new_action() {}
+  let hu = HeadsUpRound.make(scheduler, on_new_action, Two, 10, [100, 100])
 
   hu.maybe_add_action(action_with_who(One, att(Call, 10)))
   hu.maybe_add_action(action_with_who(Two, att(Fold)))
@@ -91,18 +102,23 @@ test('fold round', t => {
 })
 
 test('on flop', t => {
-  let hu = HeadsUpRound.make(Two, 10, [100, 100])
+  return new Promise(resolve => {
+    let hu = HeadsUpRound.make(scheduler, on_new_action, Two, 10, [100, 100])
 
-  hu.maybe_add_action(action_with_who(One, att(Call, 10)))
-  hu.maybe_add_action(action_with_who(Two, att(Check)))
+    hu.maybe_add_action(action_with_who(One, att(Call, 10)))
+    hu.maybe_add_action(action_with_who(Two, att(Check)))
 
-  t.is(hu.current_who, One)
-
-  t.is(HeadsUpRoundPov.from_fen(hu.pov_of(One).fen).fen, hu.pov_of(One).fen)
+    function on_new_action() {
+      t.is(hu.current_who, One)
+      t.is(HeadsUpRoundPov.from_fen(hu.pov_of(One).fen).fen, hu.pov_of(One).fen)
+      resolve()
+    }
+  })
 })
 
 test('fen', t => {
-  let hu = HeadsUpRound.make(Two, 10, [100, 100])
+  function on_new_action() { } 
+  let hu = HeadsUpRound.make(scheduler, on_new_action, Two, 10, [100, 100])
 
   t.is(hu.pov_of(One).fen, '8s7s - - -;1;2;10;100 100;2/100 100/10/1.2.10 2.1.20/90 80;-;-;-;-')
 
@@ -110,31 +126,36 @@ test('fen', t => {
 })
 
 test('headsup', t => {
+  return new Promise(resolve => {
 
-  let hu = HeadsUpRound.make(Two, 10, [100, 100])
+    let hu = HeadsUpRound.make(scheduler, on_new_action, Two, 10, [100, 100])
 
 
-  t.is(hu.current_action, hu.preflop)
-  t.falsy(hu.settled)
+    t.is(hu.current_action, hu.preflop)
+    t.falsy(hu.settled)
 
-  t.truthy(hu.maybe_add_action(action_with_who(One, att(Call, 10))))
+    t.truthy(hu.maybe_add_action(action_with_who(One, att(Call, 10))))
 
-  t.truthy(hu.maybe_add_action(action_with_who(Two, att(Check))))
-  t.is(hu.current_action, hu.flop!)
+    t.truthy(hu.maybe_add_action(action_with_who(Two, att(Check))))
+    
+    function on_new_action() {
+      t.is(hu.current_action, hu.flop!)
 
-  t.is(hu.pot, 40)
+      t.is(hu.pot, 40)
 
-  t.deepEqual(hu.allowed_actions, [
-    action_with_who(One, att(Check)),
-    action_with_who(One, ontop_raise(20)),
-    action_with_who(One, ontop_raise(60)),
-    action_with_who(One, ontop_raise(40)),
-    action_with_who(One, att(AllIn, 80)),
-    action_with_who(One, att(Fold))
-  ])
+      t.deepEqual(hu.allowed_actions, [
+        action_with_who(One, att(Check)),
+        action_with_who(One, ontop_raise(20)),
+        action_with_who(One, ontop_raise(60)),
+        action_with_who(One, ontop_raise(40)),
+        action_with_who(One, att(AllIn, 80)),
+        action_with_who(One, att(Fold))
+      ])
 
-  t.truthy(hu.maybe_add_action(action_with_who(One, att(Check))))
-
+      t.truthy(hu.maybe_add_action(action_with_who(One, att(Check))))
+      resolve()
+    }
+  })
 })
 
 test('fold', t => {

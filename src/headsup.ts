@@ -363,6 +363,8 @@ export class Showdown implements HasLeftStacks, MightHaveWinner {
 export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
 
   static make = (
+    scheduler: Scheduler,
+    on_new_action: OnHandler,
     button: WhoHasAction,
     small_blind: Chips,
     stacks: [Chips, Chips]) => {
@@ -373,7 +375,9 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
                             stacks,
                             small_blind)
 
-    return new HeadsUpRound(button,
+    return new HeadsUpRound(scheduler,
+                            on_new_action,
+                            button,
                             _middle,
                             small_blind,
                             stacks,
@@ -438,6 +442,8 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
   }
 
   constructor(
+    readonly scheduler: Scheduler,
+    readonly on_new_action: OnHandler,
     readonly button: WhoHasAction,
     readonly middle: Middle,
     readonly small_blind: Chips,
@@ -469,23 +475,33 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
   maybe_add_action(aww: ActionWithWho) {
     if (this.current_action.maybe_add_action(aww)) {
       if (this.current_action.settled) {
-        if (this.current_action.settled_with_folds) {
-          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.current_action.live_hands)
-        } else if (this.current_action.settled_with_allins) {
-          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, [])
-        } else if (!!this.river) {
-          this.showdown = new Showdown(this.river.left_stacks, this.pot, [])
-        } else if (!!this.turn) {
-          this.river = Action.make_turn(this.button, this.turn.left_stacks, this.small_blind)
-
-        } else if (!!this.flop) {
-          this.turn = Action.make_turn(this.button, this.flop.left_stacks, this.small_blind)
-        } else {
-          this.flop = Action.make_turn(this.button, this.preflop.left_stacks, this.small_blind)
-        }
+        this.schedule_new_action()
       }
       return true
     }
+  }
+
+  new_action_now = () => {
+    if (this.current_action.settled_with_folds) {
+      this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.current_action.live_hands)
+    } else if (this.current_action.settled_with_allins) {
+      this.showdown = new Showdown(this.current_action.left_stacks, this.pot, [])
+    } else if (!!this.river) {
+      this.showdown = new Showdown(this.river.left_stacks, this.pot, [])
+    } else if (!!this.turn) {
+      this.river = Action.make_turn(this.button, this.turn.left_stacks, this.small_blind)
+
+    } else if (!!this.flop) {
+      this.turn = Action.make_turn(this.button, this.flop.left_stacks, this.small_blind)
+    } else {
+      this.flop = Action.make_turn(this.button, this.preflop.left_stacks, this.small_blind)
+    }
+
+    this.on_new_action()
+  }
+
+  schedule_new_action() {
+    this.scheduler.schedule(this.new_action_now, 1000)
   }
 
 }
@@ -571,6 +587,7 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
 
 
   static make = (scheduler: Scheduler,
+                 on_new_action: OnHandler,
                  on_new_round: OnHandler,
                  small_blind: Chips) => {
 
@@ -580,11 +597,14 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
     let fold_after = Date.now() + 35000
     let turn = 1
     let round = HeadsUpRound.make(
+      scheduler,
+      on_new_action,
       ((turn + 1) % 2) + 1 as WhoHasAction,
       small_blind,
       stacks)
 
       return new HeadsUpGame(scheduler,
+                             on_new_action,
                              on_new_round,
                              small_blind,
                              stacks,
@@ -616,6 +636,7 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
 
   constructor(
     readonly scheduler: Scheduler,
+    readonly on_new_action: OnHandler,
     readonly on_new_round: OnHandler,
     readonly small_blind: Chips,
     readonly stacks: [Chips, Chips],
@@ -645,6 +666,8 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
   new_round_now = () => {
     this.turn++;
     this.round = HeadsUpRound.make(
+      this.scheduler,
+      this.on_new_action,
       this.button,
       this.small_blind,
       this.round.left_stacks)
