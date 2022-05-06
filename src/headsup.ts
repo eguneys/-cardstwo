@@ -338,7 +338,6 @@ export class Action implements HasLeftStacks, MightHaveWinner {
 }
 
 export type ShowdownMiddle = {
-  hands: Map<WhoHasAction, [Card, Card]>,
   flop: [Card, Card, Card],
   turn: Card,
   river: Card
@@ -348,15 +347,11 @@ export class Showdown implements HasLeftStacks, MightHaveWinner {
 
   constructor(readonly stacks: [Chips, Chips],
               readonly pot: Chips,
-              readonly middle: ShowdownMiddle) {}
-
-
-  get live_cards() {
-    return [...this.middle.hands.keys()]
-  }
+              readonly live_cards: Map<WhoHasAction, [Card, Card]>,
+              readonly middle?: ShowdownMiddle) {}
 
   get winner() {
-    return this.live_cards
+    return [...this.live_cards.keys()]
   }
 
   get left_stacks() {
@@ -487,17 +482,21 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
       (this.river?.pot || 0)
   }
 
-  get showdown_middle() {
+  get showdown_live_cards() {
     let { live_hands } = this.current_action
 
     let hands = new Map<WhoHasAction, [Card, Card]>()
 
     live_hands.forEach(_ => hands.set(_, this.middle.hands[_ - 1]))
 
+    return hands
+  }
+
+  get showdown_middle() {
+
     let { flop, turn, river } = this.middle
 
     return {
-      hands,
       flop,
       turn,
       river
@@ -509,11 +508,11 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
     if (this.current_action.maybe_add_action(aww)) {
       if (this.current_action.settled) {
         if (this.current_action.settled_with_folds) {
-          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
+          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_live_cards, undefined)
         } else if (this.current_action.settled_with_allins) {
-          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
+          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_live_cards, this.showdown_middle)
         } else if (!!this.river) {
-          this.showdown = new Showdown(this.river.left_stacks, this.pot, this.showdown_middle)
+          this.showdown = new Showdown(this.river.left_stacks, this.pot, this.showdown_live_cards, this.showdown_middle)
         } else {
           this.schedule_new_action()
         }

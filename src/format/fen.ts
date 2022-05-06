@@ -34,19 +34,26 @@ function maybe<A>(_: A | undefined, fn: (_: A) => string) {
 
 export function showdown_fen(showdown: Showdown) {
 
-  let { stacks, pot, middle } = showdown
+  let { stacks, pot, live_cards, middle } = showdown
 
-  let { hands, flop, turn, river } = middle
+  let _middle = maybe(middle, _ => {
 
-  let _hands = [...hands.keys()]
-  .map(key => [key, pile_fen(hands.get(key)!)].join(':')).join(',')
-  let _flop = pile_fen(flop)
-  let _turn = card_fen(turn)
-  let _river = card_fen(river)
+    let { flop, turn, river } = _
+
+    let _flop = pile_fen(flop)
+    let _turn = card_fen(turn)
+    let _river = card_fen(river)
+
+    return [_flop, _turn, _river].join(' ')
+  })
+
+  let _hands = [...live_cards.keys()]
+  .map(key => [key, pile_fen(live_cards.get(key)!)].join(':')).join(',')
 
   let _stacks = stacks.join(' '),
-    _pot = pot,
-    _middle = [_hands, _flop, _turn, _river].join(' ')
+    _pot = pot
+
+  _middle = [_hands, _middle].join('-')
 
 
   return [_stacks, _pot, _middle].join('/')
@@ -187,24 +194,26 @@ export function fen_showdown(fen: string) {
   let stacks = _stacks.split(' ').map(_ => fen_chips(_)!) as [Chips, Chips],
     pot = fen_chips(_pot)!
 
-  let [_hands, _flop, _turn, _river] = _middle.split(' ') 
+  let [_hands, __middle] = _middle.split('-') 
+
+  let middle = fen_maybe(__middle, _ => {
+    let [_flop, _turn, _river] = _.split(' ')
+    let flop = fen_pile(_flop) as [Card, Card, Card],
+      turn = fen_card(_turn)!,
+      river = fen_card(_river)!
+
+    return {
+      flop,
+      turn,
+      river
+    }
+  })
 
   let hands = new Map(_hands.split(',').map(_ => {
     let [_key, _hand] = _.split(':')
     return [fen_who(_key)!, fen_pile(_hand) as [Card, Card]]
   }))
-  let flop = fen_pile(_flop) as [Card, Card, Card],
-    turn = fen_card(_turn)!,
-    river = fen_card(_river)!
-
-  let middle = {
-    hands,
-    flop,
-    turn,
-    river
-  }
-
-  return new Showdown(stacks, pot, middle)
+    return new Showdown(stacks, pot, hands, middle)
 }
 
 export function fen_headsup_round_pov(fen: string) {
