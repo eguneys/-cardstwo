@@ -337,12 +337,27 @@ export class Action implements HasLeftStacks, MightHaveWinner {
   }
 }
 
+export type ShowdownMiddle = {
+  hands: Map<WhoHasAction, [Card, Card]>,
+  flop: [Card, Card, Card],
+  turn: Card,
+  river: Card
+}
+
 export class Showdown implements HasLeftStacks, MightHaveWinner {
 
   constructor(readonly stacks: [Chips, Chips],
               readonly pot: Chips,
-              readonly winner: Array<WhoHasAction>) {}
+              readonly middle: ShowdownMiddle) {}
 
+
+  get live_cards() {
+    return [...this.middle.hands.keys()]
+  }
+
+  get winner() {
+    return this.live_cards
+  }
 
   get left_stacks() {
     let { shares } = this
@@ -472,15 +487,33 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
       (this.river?.pot || 0)
   }
 
+  get showdown_middle() {
+    let { live_hands } = this.current_action
+
+    let hands = new Map<WhoHasAction, [Card, Card]>()
+
+    live_hands.forEach(_ => hands.set(_, this.middle.hands[_ - 1]))
+
+    let { flop, turn, river } = this.middle
+
+    return {
+      hands,
+      flop,
+      turn,
+      river
+    }
+
+  }
+
   maybe_add_action(aww: ActionWithWho) {
     if (this.current_action.maybe_add_action(aww)) {
       if (this.current_action.settled) {
         if (this.current_action.settled_with_folds) {
-          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.current_action.live_hands)
+          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
         } else if (this.current_action.settled_with_allins) {
-          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, [])
+          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
         } else if (!!this.river) {
-          this.showdown = new Showdown(this.river.left_stacks, this.pot, [])
+          this.showdown = new Showdown(this.river.left_stacks, this.pot, this.showdown_middle)
         } else {
           this.schedule_new_action()
         }

@@ -5,6 +5,9 @@ import { suits_uci, ranks_uci, uci_card, uci_pile } from './uci'
 import { Chips, WhoHasAction, ActionType, action_with_who, aww_who, aww_action_type, ActionWithWho, HeadsUpRoundPov, Action, Showdown } from '../headsup'
 import { aww_att, att, att_action_type, att_on_top } from '../headsup'
 
+export const fen_pile = uci_pile
+export const fen_card = uci_card
+
 export function card_fen(card: Card) {
   return ranks_uci[card_rank(card) - 1] +
     suits_uci[card_suit(card) - 1]
@@ -31,14 +34,22 @@ function maybe<A>(_: A | undefined, fn: (_: A) => string) {
 
 export function showdown_fen(showdown: Showdown) {
 
-  let { stacks, pot, winner } = showdown
+  let { stacks, pot, middle } = showdown
+
+  let { hands, flop, turn, river } = middle
+
+  let _hands = [...hands.keys()]
+  .map(key => [key, pile_fen(hands.get(key)!)].join(':')).join(',')
+  let _flop = pile_fen(flop)
+  let _turn = card_fen(turn)
+  let _river = card_fen(river)
 
   let _stacks = stacks.join(' '),
     _pot = pot,
-    _winner = winner.join(' ')
+    _middle = [_hands, _flop, _turn, _river].join(' ')
 
 
-  return [_stacks, _pot, _winner].join('/')
+  return [_stacks, _pot, _middle].join('/')
 
 }
 
@@ -171,14 +182,29 @@ export function fen_action(_: string): Action | undefined {
 }
 
 export function fen_showdown(fen: string) {
-  let [_stacks, _pot, _winner] = fen.split('/')
+  let [_stacks, _pot, _middle] = fen.split('/')
 
   let stacks = _stacks.split(' ').map(_ => fen_chips(_)!) as [Chips, Chips],
     pot = fen_chips(_pot)!
 
-  let winner = _winner.split(' ').map(_ => fen_who(_)!)
+  let [_hands, _flop, _turn, _river] = _middle.split(' ') 
 
-  return new Showdown(stacks, pot, winner)
+  let hands = new Map(_hands.split(',').map(_ => {
+    let [_key, _hand] = _.split(':')
+    return [fen_who(_key)!, fen_pile(_hand) as [Card, Card]]
+  }))
+  let flop = fen_pile(_flop) as [Card, Card, Card],
+    turn = fen_card(_turn)!,
+    river = fen_card(_river)!
+
+  let middle = {
+    hands,
+    flop,
+    turn,
+    river
+  }
+
+  return new Showdown(stacks, pot, middle)
 }
 
 export function fen_headsup_round_pov(fen: string) {

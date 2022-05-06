@@ -144,6 +144,19 @@ test('fen', t => {
   t.is(HeadsUpRoundPov.from_fen(hu.pov_of(One).fen).fen, hu.pov_of(One).fen)
 })
 
+test('fen showdown', t => {
+  function on_new_action() {}
+  let hu = HeadsUpRound.make(scheduler, on_new_action, Two, 10, [100, 100])
+
+  hu.maybe_add_action(action_with_who(One, att(AllIn, 90)))
+  hu.maybe_add_action(action_with_who(Two, att(AllIn, 80)))
+
+  t.is(hu.pov_of(One).fen, '8s7s - - -;1;2;10;100 100;2/100 100/10/1.2.10 2.1.20 1.6.90 2.6.80/0 0;-;-;-;0 0/200/1:8s7s,2:6s5s JsTs9s Qs Ks')
+
+  t.is(HeadsUpRoundPov.from_fen(hu.pov_of(One).fen).fen, hu.pov_of(One).fen)
+
+})
+
 test('headsup', t => {
   return new Promise(resolve => {
 
