@@ -165,8 +165,8 @@ export class Action implements HasLeftStacks, MightHaveWinner {
   }
 
   get bb_act_initial() {
-    return (this.current_who === this.bb_who) &&
-      this.actions.filter(_ => aww_who(_) === this.bb_who).length === 1
+    let actions = this.actions.filter(_ => aww_who(_) === this.bb_who)
+    return (this.current_who === this.bb_who) && actions.length === 1 && aww_action_type(actions[0]) === BigBlind
   }
 
   get button_has_acted() {
