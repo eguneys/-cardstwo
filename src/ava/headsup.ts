@@ -87,6 +87,25 @@ test('all in showdown', t => {
   })
 })
 
+test('fold on flop', t => {
+
+  return new Promise(resolve => {
+    let hu = HeadsUpRound.make(scheduler, on_new_action, Two, 10, [100, 100])
+
+    hu.maybe_add_action(action_with_who(One, att(Call, 10)))
+    hu.maybe_add_action(action_with_who(Two, att(Check, 0)))
+
+    function on_new_action() {
+
+      hu.maybe_add_action(action_with_who(One, att(Fold, 0)))
+      t.deepEqual(hu.winner, [Two])
+      t.deepEqual(hu.allowed_actions, [ ])
+      resolve()
+    }
+
+  })
+})
+
 test('fold round', t => {
 
   function on_new_action() {}

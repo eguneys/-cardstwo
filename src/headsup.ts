@@ -266,12 +266,12 @@ export class Action implements HasLeftStacks, MightHaveWinner {
     let bets = whos.map(_ => this.bets_of(_))
     let bets_ok = bets.every(_ => _ === bets[0])
 
-    if (!this.button_has_acted) {
-      return false
-    } else if (this.settled_with_allins) {
+    if (this.settled_with_allins) {
       return true
     } else if (this.settled_with_folds) {
       return true
+    } else if (!this.button_has_acted) {
+      return false
     } else if (this.bb_act_initial) {
       return false
     } else {
@@ -510,6 +510,7 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
 
 export type MiddlePov = {
   hand: [Card, Card],
+  hand2?: [Card, Card],
   flop?: [Card, Card, Card],
   turn?: Card,
   river?: Card
