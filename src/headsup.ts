@@ -475,20 +475,22 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
   maybe_add_action(aww: ActionWithWho) {
     if (this.current_action.maybe_add_action(aww)) {
       if (this.current_action.settled) {
-        this.schedule_new_action()
+        if (this.current_action.settled_with_folds) {
+          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.current_action.live_hands)
+        } else if (this.current_action.settled_with_allins) {
+          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, [])
+        } else if (!!this.river) {
+          this.showdown = new Showdown(this.river.left_stacks, this.pot, [])
+        } else {
+          this.schedule_new_action()
+        }
       }
       return true
     }
   }
 
   new_action_now = () => {
-    if (this.current_action.settled_with_folds) {
-      this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.current_action.live_hands)
-    } else if (this.current_action.settled_with_allins) {
-      this.showdown = new Showdown(this.current_action.left_stacks, this.pot, [])
-    } else if (!!this.river) {
-      this.showdown = new Showdown(this.river.left_stacks, this.pot, [])
-    } else if (!!this.turn) {
+    if (!!this.turn) {
       this.river = Action.make_turn(this.button, this.turn.left_stacks, this.small_blind)
 
     } else if (!!this.flop) {

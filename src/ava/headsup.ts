@@ -76,14 +76,14 @@ test('all in showdown', t => {
     hu.maybe_add_action(action_with_who(Two, att(AllIn, 80)))
 
     function on_new_action() {
-
-      t.truthy(hu.showdown)
-      t.deepEqual(hu.winner!, [One])
-      t.truthy(hu.settled)
-
-      t.deepEqual(hu.left_stacks, [200, 0])
-      resolve()
     }
+
+    t.truthy(hu.showdown)
+    t.deepEqual(hu.winner!, [One])
+    t.truthy(hu.settled)
+
+    t.deepEqual(hu.left_stacks, [200, 0])
+    resolve()
   })
 })
 
