@@ -1,4 +1,4 @@
-import { Card, _deck } from './types'
+import { Card, shuffled } from './types'
 import { fen_headsup_round_pov, headsup_round_pov_fen } from './format/fen'
 
 export type Middle = {
@@ -402,7 +402,7 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
     small_blind: Chips,
     stacks: [Chips, Chips]) => {
 
-    let deck = _deck.slice(0)
+    let deck = shuffled()
     let _middle = middle(whos, deck)
     let preflop = Action.make_blinds(button,
                             stacks,
