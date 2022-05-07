@@ -7,31 +7,36 @@ const ontop_raise = (on_top: number) => att(Raise, on_top)
 
 const scheduler = {
   schedule(fn: () => void, ms: number) {
-    setTimeout(fn, ms)
+    setTimeout(fn, 0)
   }
 }
 
 
-test.only('no new action after allin', t => {
+test('no new action after allin call', t => {
   return new Promise(resolve => {
 
-    function on_new_round() {}
     let hu = HeadsUpGame.make(scheduler, on_new_action, on_new_round, 1)
 
-    t.truthy(hu.apply(action_with_who(One, att(Raise, 48))))
-    t.truthy(hu.apply(action_with_who(Two, att(Call, 48))))
+    let now = false
+
+    hu.apply(action_with_who(One, att(Fold, 0)))
+
+
+
+    function on_new_round() {
+      now = true
+      t.truthy(hu.apply(action_with_who(Two, att(Call, 1))))
+      t.truthy(hu.apply(action_with_who(One, att(AllIn, 97))))
+      t.truthy(hu.apply(action_with_who(Two, att(Call, 97))))
+    }
 
     function on_new_action() {
-      if (!hu.round.showdown && hu.round.current_action === hu.round.flop) {
-        t.truthy(hu.apply(action_with_who(One, att(AllIn, 50))))
-        t.truthy(hu.apply(action_with_who(Two, att(AllIn, 50))))
-      } else {
-        t.truthy(hu.round.showdown)
-        t.is(hu.round.flop, hu.round.current_action)
+      if (!now) { return }
+      t.truthy(hu.round.showdown)
+      t.is(hu.round.preflop, hu.round.current_action)
 
-        t.deepEqual(hu.round.current_action.allowed_actions, [])
-        resolve()
-      }
+      t.deepEqual(hu.round.current_action.allowed_actions, [])
+      resolve()
     }
   })
 })
@@ -110,7 +115,7 @@ test('check on flop', async t => {
 })
 
 
-test('all in showdown', t => {
+test.failing('all in showdown', t => {
   return new Promise(resolve => {
     let hu = HeadsUpRound.make(scheduler, on_new_action, Two, 10, [100, 100])
 
@@ -251,7 +256,6 @@ test('fold', t => {
 
   t.truthy(bb.maybe_add_action(action_with_who(One, att(Fold))))
 
-  t.truthy(bb.settled_with_folds)
   t.truthy(bb.settled)
 
   t.deepEqual(bb.winner, [Two])

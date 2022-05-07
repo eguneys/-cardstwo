@@ -151,8 +151,8 @@ export class Action implements HasLeftStacks, MightHaveWinner {
   }
 
   get winner() {
-    if (this.settled_with_folds) {
-      return [who_next(aww_who(this.who_has_folded[0]))]
+    if (this.who_hasnt_folded.length === 1) {
+      return this.who_hasnt_folded
     }
   }
 
@@ -263,36 +263,44 @@ export class Action implements HasLeftStacks, MightHaveWinner {
   }
 
   get settled() {
-    let bets = whos.map(_ => this.bets_of(_))
-    let bets_ok = bets.every(_ => _ === bets[0])
-
-    if (this.settled_with_allins) {
-      return true
-    } else if (this.settled_with_folds) {
+    if (this.winner) {
       return true
     } else if (!this.button_has_acted) {
       return false
     } else if (this.bb_act_initial) {
       return false
     } else {
+      let { highest_bet } = this
+      let bets_ok = this.who_has_action.every(_ => this.bets_of(_) === highest_bet)
       return bets_ok
     }
   }
 
   get who_has_folded() {
-    return this.actions.filter(_ => aww_action_type(_) === Fold)
+    return this.actions.filter(_ => aww_action_type(_) === Fold).map(aww_who)
   }
 
   get who_has_allin() {
-    return this.actions.filter(_ => aww_action_type(_) === AllIn)
+    return this.actions.filter(_ => aww_action_type(_) === AllIn).map(aww_who)
   }
 
-  get settled_with_folds() {
-    return this.who_has_folded.length === 1
+  get who_hasnt_folded() {
+    let { who_has_folded } = this
+    return whos.filter(_ => !who_has_folded.includes(_))
   }
 
-  get settled_with_allins() {
-    return this.who_has_allin.length === 2
+  get who_hasnt_allin() {
+    let { who_has_allin } = this
+    return whos.filter(_ => !who_has_allin.includes(_))
+  }
+
+  get who_has_action() {
+    let { who_hasnt_folded, who_hasnt_allin } = this
+    return whos.filter(_ => who_hasnt_folded.includes(_) && who_hasnt_allin.includes(_))
+  }
+
+  get no_action_left() {
+    return this.who_has_action.length <= 1
   }
 
   maybe_add_action(aww: ActionWithWho) {
@@ -331,6 +339,9 @@ export class Action implements HasLeftStacks, MightHaveWinner {
     return false
   }
 
+  get highest_bet() {
+    return Math.max(...whos.map(_ => this.bets_of(_)))
+  }
 
   bets_of(who: WhoHasAction) {
     return this.stacks[who - 1] - this.left_stacks[who - 1]
@@ -530,9 +541,7 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
   }
 
   new_action_now = () => {
-    if (this.current_action.settled_with_folds) {
-      this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
-    } else if (this.current_action.settled_with_allins) {
+    if (this.current_action.winner || (this.current_action.settled && this.current_action.no_action_left)) {
       this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
     } else if (!!this.river) {
       this.showdown = new Showdown(this.river.left_stacks, this.pot, this.showdown_middle)
