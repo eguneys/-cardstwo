@@ -41,10 +41,10 @@ test('SolIndex', t => {
 
 let _soli = new Solitaire([
   [uci_pile(``)!, uci_pile(``)!],
-  [uci_pile(``)!, uci_pile(`1c`)!],
-  [uci_pile(`1h`)!, uci_pile(`1c2c`)!],
-  [uci_pile(`1h2h`)!, uci_pile(`1c2c3c`)!],
-  [uci_pile(`1h2h3h`)!, uci_pile(`1c2c3c4c`)!],
+  [uci_pile(``)!, uci_pile(`Ac`)!],
+  [uci_pile(`Ah`)!, uci_pile(`Ac2c`)!],
+  [uci_pile(`Ah2h`)!, uci_pile(`Ac2c3c`)!],
+  [uci_pile(`Ah2h3h`)!, uci_pile(`Ac2c3c4c`)!],
   [uci_pile(``)!, uci_pile(``)!],
   [uci_pile(``)!, uci_pile(``)!]], [[],[],[],[]])
 
@@ -56,8 +56,8 @@ test('drop pile to pile', t => {
   let res = soli.drop(pile_sol(4, 1), pile_sol(1, 0))!
 
   t.truthy(res)
-  t.is(pile_uci(res.front(4)), `1c`)
-  t.is(pile_uci(res.front(1)), `1c2c3c4c`)
+  t.is(pile_uci(res.front(4)), `Ac`)
+  t.is(pile_uci(res.front(1)), `Ac2c3c4c`)
 
 })
 
@@ -68,7 +68,7 @@ test('reveal drop pile to pile', t => {
   let res = soli.drop(pile_sol(4, 0), pile_sol(1, 0))!
 
   t.truthy(res)
-  t.is(pile_uci(res.back(4)), `1h2h`)
+  t.is(pile_uci(res.back(4)), `Ah2h`)
   t.is(pile_uci(res.front(4)), `3h`)
-  t.is(pile_uci(res.front(1)), `1c1c2c3c4c`)
+  t.is(pile_uci(res.front(1)), `AcAc2c3c4c`)
 })

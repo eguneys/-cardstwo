@@ -1,5 +1,6 @@
 import { Card, _deck } from './types'
 import { fen_headsup_round_pov, headsup_round_pov_fen } from './format/fen'
+import { hand_solve, Hand, HandValue } from './solver'
 
 export type Middle = {
   hands: Array<[Card, Card]>,
@@ -363,7 +364,23 @@ export class Showdown implements HasLeftStacks, MightHaveWinner {
   }
 
   get winner() {
-    return [...this.middle.hands.keys()]
+    if (this.middle.hands.size === 1) {
+      return [...this.middle.hands.keys()]
+    }
+    
+    return this.winner_hands.map(_ => _[0])
+  }
+
+  get winner_hands() {
+    let { solved_hands } = this
+    return solved_hands.filter(_ => _[1][1] === solved_hands[0][1][1])
+  }
+
+  get solved_hands() {
+    return [...this.middle.hands]
+    .map<[WhoHasAction, [HandValue, Hand]]>(([who, hand]) =>
+         [who, hand_solve([...hand, ...this.middle.flop, this.middle.turn, this.middle.river])])
+    .sort((a, b) => b[1][0] - a[1][0])
   }
 
   get left_stacks() {
@@ -569,6 +586,26 @@ export class ShowdownPov implements HasLeftStacks, MightHaveWinner {
               readonly winner: Array<WhoHasAction>,
               readonly middle?: ShowdownMiddle) {}
 
+  get winner_hands() {
+    const { solved_hands } = this
+    if (solved_hands) {
+      return solved_hands.filter(_ => _[1][1] === solved_hands[0][1][1])
+    }
+  }
+
+  get solved_hands() {
+    const { middle } = this
+    if (!middle) {
+      return undefined
+    }
+    return [...middle.hands]
+    .map<[WhoHasAction, [HandValue, Hand]]>(([who, hand]) =>
+         [who, hand_solve([...hand, ...middle.flop, middle.turn, middle.river])])
+    .sort((a, b) => b[1][0] - a[1][0])
+  }
+
+
+              
   get left_stacks() {
     let { shares } = this
     return this.stacks.map((_, i) => _ + shares[i]) as [Chips, Chips]

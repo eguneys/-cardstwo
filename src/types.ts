@@ -10,11 +10,11 @@ export function card(suit: Suit, rank: Rank) {
 }
 
 export function card_suit(card: Card) {
-  return Math.floor(card / 20)
+  return Math.floor(card / 20) as Suit
 }
 
 export function card_rank(card: Card) {
-  return card % 20
+  return card % 20 as Rank
 }
 
 export function is_suit(_: number): _ is Suit {

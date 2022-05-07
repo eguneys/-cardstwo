@@ -1,7 +1,7 @@
 import { Pile, Card, is_suit, is_rank, card, card_suit, card_rank } from '../types'
 
 export const suits_uci = ['h', 'c', 'd', 's']
-export const ranks_uci = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
+export const ranks_uci = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
 
 export function uci_card(_card: string) {
   if (card.length === 2) {
