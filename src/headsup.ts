@@ -338,6 +338,7 @@ export class Action implements HasLeftStacks, MightHaveWinner {
 }
 
 export type ShowdownMiddle = {
+  hands: Map<WhoHasAction, [Card, Card]>,
   flop: [Card, Card, Card],
   turn: Card,
   river: Card
@@ -347,11 +348,19 @@ export class Showdown implements HasLeftStacks, MightHaveWinner {
 
   constructor(readonly stacks: [Chips, Chips],
               readonly pot: Chips,
-              readonly live_cards: Map<WhoHasAction, [Card, Card]>,
-              readonly middle?: ShowdownMiddle) {}
+              readonly middle: ShowdownMiddle) {}
+
+
+  get pov() {
+    let middle = this.middle.hands.size > 1 ? this.middle : undefined
+    return new ShowdownPov(this.stacks,
+                           this.pot,
+                           this.winner,
+                           middle)
+  }
 
   get winner() {
-    return [...this.live_cards.keys()]
+    return [...this.middle.hands.keys()]
   }
 
   get left_stacks() {
@@ -443,7 +452,7 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
       this.flop,
       this.turn,
       this.river,
-      this.showdown
+      this.showdown?.pov
     ))
   }
 
@@ -482,21 +491,18 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
       (this.river?.pot || 0)
   }
 
-  get showdown_live_cards() {
+  get showdown_middle() {
+
     let { live_hands } = this.current_action
 
     let hands = new Map<WhoHasAction, [Card, Card]>()
 
     live_hands.forEach(_ => hands.set(_, this.middle.hands[_ - 1]))
 
-    return hands
-  }
-
-  get showdown_middle() {
-
     let { flop, turn, river } = this.middle
 
     return {
+      hands,
       flop,
       turn,
       river
@@ -508,11 +514,11 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
     if (this.current_action.maybe_add_action(aww)) {
       if (this.current_action.settled) {
         if (this.current_action.settled_with_folds) {
-          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_live_cards, undefined)
+          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
         } else if (this.current_action.settled_with_allins) {
-          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_live_cards, this.showdown_middle)
+          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
         } else if (!!this.river) {
-          this.showdown = new Showdown(this.river.left_stacks, this.pot, this.showdown_live_cards, this.showdown_middle)
+          this.showdown = new Showdown(this.river.left_stacks, this.pot, this.showdown_middle)
         } else {
           this.schedule_new_action()
         }
@@ -548,6 +554,30 @@ export type MiddlePov = {
   river?: Card
 }
 
+export class ShowdownPov implements HasLeftStacks, MightHaveWinner {
+
+  constructor(readonly stacks: [Chips, Chips],
+              readonly pot: Chips,
+              readonly winner: Array<WhoHasAction>,
+              readonly middle?: ShowdownMiddle) {}
+
+  get left_stacks() {
+    let { shares } = this
+    return this.stacks.map((_, i) => _ + shares[i]) as [Chips, Chips]
+  }
+
+  get shares() {
+
+    let nb = this.winner.length
+
+    let share = this.pot / nb
+
+
+    return whos.map(_ => this.winner.includes(_) ? share : 0) 
+  }
+
+}
+
 export class HeadsUpRoundPov {
 
   static from_fen = (fen: string) => {
@@ -568,7 +598,7 @@ export class HeadsUpRoundPov {
     readonly flop?: Action,
     readonly turn?: Action,
     readonly river?: Action,
-    readonly showdown?: Showdown) { }
+    readonly showdown?: ShowdownPov) { }
 
     get current_who() {
       return this.current_action.current_who

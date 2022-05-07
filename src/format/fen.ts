@@ -2,7 +2,7 @@ import { card_suit, card_rank,  Pile, Card } from '../types'
 import { Solitaire } from '../solitaire'
 import { suits_uci, ranks_uci, uci_card, uci_pile } from './uci'
 
-import { Chips, WhoHasAction, ActionType, action_with_who, aww_who, aww_action_type, ActionWithWho, HeadsUpRoundPov, Action, Showdown } from '../headsup'
+import { Chips, WhoHasAction, ActionType, action_with_who, aww_who, aww_action_type, ActionWithWho, HeadsUpRoundPov, Action, Showdown, ShowdownPov } from '../headsup'
 import { aww_att, att, att_action_type, att_on_top } from '../headsup'
 
 export const fen_pile = uci_pile
@@ -20,10 +20,6 @@ export function pile_fen(pile: Pile) {
   return pile.map(card_fen).join('')
 }
 
-export function bool_fen(bool: boolean) {
-  return bool ? '+' : '-'
-}
-
 function maybe<A>(_: A | undefined, fn: (_: A) => string) {
   if (_) {
     return fn(_)
@@ -32,31 +28,30 @@ function maybe<A>(_: A | undefined, fn: (_: A) => string) {
   }
 }
 
-export function showdown_fen(showdown: Showdown) {
+export function showdown_fen(showdown: ShowdownPov) {
 
-  let { stacks, pot, live_cards, middle } = showdown
+  let { stacks, pot, middle, winner } = showdown
+
+  let _winner = winner.join(' ')
 
   let _middle = maybe(middle, _ => {
 
-    let { flop, turn, river } = _
+    let { flop, turn, river, hands } = _
 
     let _flop = pile_fen(flop)
     let _turn = card_fen(turn)
     let _river = card_fen(river)
 
-    return [_flop, _turn, _river].join(' ')
+    let _hands = [...hands.keys()]
+    .map(key => [key, pile_fen(hands.get(key)!)].join(':')).join(',')
+
+
+    return [_flop, _turn, _river, _hands].join(' ')
   })
-
-  let _hands = [...live_cards.keys()]
-  .map(key => [key, pile_fen(live_cards.get(key)!)].join(':')).join(',')
-
   let _stacks = stacks.join(' '),
     _pot = pot
 
-  _middle = [_hands, _middle].join('-')
-
-
-  return [_stacks, _pot, _middle].join('/')
+  return [_stacks, _pot, _winner, _middle].join('/')
 
 }
 
@@ -189,31 +184,33 @@ export function fen_action(_: string): Action | undefined {
 }
 
 export function fen_showdown(fen: string) {
-  let [_stacks, _pot, _middle] = fen.split('/')
+  let [_stacks, _pot, _winner, _middle] = fen.split('/')
 
   let stacks = _stacks.split(' ').map(_ => fen_chips(_)!) as [Chips, Chips],
     pot = fen_chips(_pot)!
 
-  let [_hands, __middle] = _middle.split('-') 
+  let winner = _winner.split(' ').map(_ => fen_who(_)!)
 
-  let middle = fen_maybe(__middle, _ => {
-    let [_flop, _turn, _river] = _.split(' ')
+  let middle = fen_maybe(_middle, _ => {
+    let [_flop, _turn, _river, _hands] = _.split(' ')
     let flop = fen_pile(_flop) as [Card, Card, Card],
       turn = fen_card(_turn)!,
       river = fen_card(_river)!
 
+    let hands = new Map(_hands.split(',').map(_ => {
+      let [_key, _hand] = _.split(':')
+      return [fen_who(_key)!, fen_pile(_hand) as [Card, Card]]
+    }))
+
     return {
+      hands,
       flop,
       turn,
       river
     }
   })
 
-  let hands = new Map(_hands.split(',').map(_ => {
-    let [_key, _hand] = _.split(':')
-    return [fen_who(_key)!, fen_pile(_hand) as [Card, Card]]
-  }))
-    return new Showdown(stacks, pot, hands, middle)
+    return new ShowdownPov(stacks, pot, winner, middle)
 }
 
 export function fen_headsup_round_pov(fen: string) {
