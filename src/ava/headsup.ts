@@ -7,9 +7,34 @@ const ontop_raise = (on_top: number) => att(Raise, on_top)
 
 const scheduler = {
   schedule(fn: () => void, ms: number) {
-    setTimeout(fn, 0)
+    setTimeout(fn, ms)
   }
 }
+
+
+test.only('no new action after allin', t => {
+  return new Promise(resolve => {
+
+    function on_new_round() {}
+    let hu = HeadsUpGame.make(scheduler, on_new_action, on_new_round, 1)
+
+    t.truthy(hu.apply(action_with_who(One, att(Raise, 48))))
+    t.truthy(hu.apply(action_with_who(Two, att(Call, 48))))
+
+    function on_new_action() {
+      if (!hu.round.showdown && hu.round.current_action === hu.round.flop) {
+        t.truthy(hu.apply(action_with_who(One, att(AllIn, 50))))
+        t.truthy(hu.apply(action_with_who(Two, att(AllIn, 50))))
+      } else {
+        t.truthy(hu.round.showdown)
+        t.is(hu.round.flop, hu.round.current_action)
+
+        t.deepEqual(hu.round.current_action.allowed_actions, [])
+        resolve()
+      }
+    }
+  })
+})
 
 test('reraise call next action', t => {
   return new Promise(resolve => {
@@ -38,6 +63,8 @@ test('reraise call next action', t => {
 test('game new round', t => {
   return new Promise(resolve => {
 
+
+    let res = HeadsUpGame.make(scheduler, on_new_action, on_new_round, 1)
     function on_new_action() {
     }
 
@@ -49,7 +76,6 @@ test('game new round', t => {
 
       resolve()
     }
-    let res = HeadsUpGame.make(scheduler, on_new_action, on_new_round, 1)
 
     res.apply(action_with_who(Two, att(AllIn, 99)))
     res.apply(action_with_who(One, att(Fold, 0)))
@@ -100,14 +126,14 @@ test('all in showdown', t => {
     hu.maybe_add_action(action_with_who(Two, att(AllIn, 80)))
 
     function on_new_action() {
+
+      t.truthy(hu.showdown)
+      t.deepEqual(hu.winner!, [One])
+      t.truthy(hu.settled)
+
+      t.deepEqual(hu.left_stacks, [200, 0])
+      resolve()
     }
-
-    t.truthy(hu.showdown)
-    t.deepEqual(hu.winner!, [One])
-    t.truthy(hu.settled)
-
-    t.deepEqual(hu.left_stacks, [200, 0])
-    resolve()
   })
 })
 
@@ -169,15 +195,19 @@ test('fen', t => {
 })
 
 test('fen showdown', t => {
-  function on_new_action() {}
-  let hu = HeadsUpRound.make(scheduler, on_new_action, Two, 10, [100, 100])
+  return new Promise(resolve => {
+    let hu = HeadsUpRound.make(scheduler, on_new_action, Two, 10, [100, 100])
 
-  hu.maybe_add_action(action_with_who(One, att(AllIn, 90)))
-  hu.maybe_add_action(action_with_who(Two, att(AllIn, 80)))
+    hu.maybe_add_action(action_with_who(One, att(AllIn, 90)))
+    hu.maybe_add_action(action_with_who(Two, att(AllIn, 80)))
 
-  t.is(hu.pov_of(One).fen, '8s7s - - -;1;2;10;100 100;2/100 100/10/1.2.10 2.1.20 1.6.90 2.6.80/0 0;-;-;-;0 0/200/1 2/JsTs9s Qs Ks 1:8s7s,2:6s5s')
+    function on_new_action() {
+      t.is(hu.pov_of(One).fen, '8s7s - - -;1;2;10;100 100;2/100 100/10/1.2.10 2.1.20 1.6.90 2.6.80/0 0;-;-;-;0 0/200/1 2/JsTs9s Qs Ks 1:8s7s,2:6s5s')
 
-  t.is(HeadsUpRoundPov.from_fen(hu.pov_of(One).fen).fen, hu.pov_of(One).fen)
+      t.is(HeadsUpRoundPov.from_fen(hu.pov_of(One).fen).fen, hu.pov_of(One).fen)
+      resolve()
+    }
+  })
 
 })
 

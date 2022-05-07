@@ -350,13 +350,16 @@ export class Showdown implements HasLeftStacks, MightHaveWinner {
               readonly pot: Chips,
               readonly middle: ShowdownMiddle) {}
 
-
   get pov() {
-    let middle = this.middle.hands.size > 1 ? this.middle : undefined
+    let middle = this.show_middle ? this.middle : undefined
     return new ShowdownPov(this.stacks,
                            this.pot,
                            this.winner,
                            middle)
+  }
+
+  get show_middle() {
+    return this.middle.hands.size > 1
   }
 
   get winner() {
@@ -403,6 +406,13 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
                             preflop)
   }
 
+  get next_round_afterms() {
+    return 3000 + (!this.showdown?.show_middle ? 0 :
+                   1000 +
+                    (this.river ? 500 :
+                    this.turn ? 1000 :
+                    this.flop ? 2000 : 3000))
+  }
 
   get current_who() {
     return this.current_action.current_who
@@ -513,22 +523,20 @@ export class HeadsUpRound implements HasLeftStacks, MightHaveWinner {
   maybe_add_action(aww: ActionWithWho) {
     if (this.current_action.maybe_add_action(aww)) {
       if (this.current_action.settled) {
-        if (this.current_action.settled_with_folds) {
-          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
-        } else if (this.current_action.settled_with_allins) {
-          this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
-        } else if (!!this.river) {
-          this.showdown = new Showdown(this.river.left_stacks, this.pot, this.showdown_middle)
-        } else {
-          this.schedule_new_action()
-        }
+        this.schedule_new_action()
       }
       return true
     }
   }
 
   new_action_now = () => {
-    if (!!this.turn) {
+    if (this.current_action.settled_with_folds) {
+      this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
+    } else if (this.current_action.settled_with_allins) {
+      this.showdown = new Showdown(this.current_action.left_stacks, this.pot, this.showdown_middle)
+    } else if (!!this.river) {
+      this.showdown = new Showdown(this.river.left_stacks, this.pot, this.showdown_middle)
+    } else if (!!this.turn) {
       this.river = Action.make_turn(this.button, this.turn.left_stacks, this.small_blind)
 
     } else if (!!this.flop) {
@@ -659,29 +667,18 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
     let stacks = whos
     .map(_ => 100 * small_blind) as [Chips, Chips]
 
-    let fold_after = Date.now() + 35000
-    let turn = 1
-    let round = HeadsUpRound.make(
-      scheduler,
-      on_new_action,
-      ((turn + 1) % 2) + 1 as WhoHasAction,
-      small_blind,
-      stacks)
-
       return new HeadsUpGame(scheduler,
                              on_new_action,
                              on_new_round,
                              small_blind,
                              stacks,
-                             fold_after,
-                             turn,
-                             round)
+                             0)
   }
 
 
-  round: HeadsUpRound
+  round!: HeadsUpRound
   turn: number
-  fold_after: Timestamp
+  fold_after!: Timestamp
 
   get button() {
     return ((this.turn + 1) % 2) + 1 as WhoHasAction
@@ -701,31 +698,43 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
 
   constructor(
     readonly scheduler: Scheduler,
-    readonly on_new_action: OnHandler,
+    readonly _on_new_action: OnHandler,
     readonly on_new_round: OnHandler,
     readonly small_blind: Chips,
     readonly stacks: [Chips, Chips],
-    fold_after: Timestamp,
-    turn: number,
-    round: HeadsUpRound) {
-      this.fold_after = fold_after
+    turn: number) {
       this.turn = turn
-      this.round = round
-  }
+
+      this.round = HeadsUpRound.make(
+        this.scheduler,
+        this.on_new_action,
+        this.button,
+        this.small_blind,
+        this.stacks)
+        this.fold_after = Date.now() + 35000
+    }
 
 
   apply(aww: ActionWithWho) {
     if (this.round) {
       let res = this.round.maybe_add_action(aww)
-      
       if (res) {
         this.fold_after = Date.now() + 35000
-        if (this.winner) {
-        } else if (this.round.winner) {
-          this.schedule_new_round()
-        }
+        return true
       }
     }
+  }
+
+  on_new_action = () => {
+
+    this.fold_after = Date.now() + 35000
+
+    if (this.winner) {
+    } else if (this.round.winner) {
+      this.schedule_new_round()
+    }
+
+    this._on_new_action()
   }
 
   new_round_now = () => {
@@ -742,6 +751,7 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
   }
 
   schedule_new_round() {
-    this.scheduler.schedule(this.new_round_now, 5000)
+    this.scheduler.schedule(this.new_round_now, this.round.next_round_afterms)
   }
+
 }
