@@ -708,6 +708,7 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
   static make = (scheduler: Scheduler,
                  on_new_action: OnHandler,
                  on_new_round: OnHandler,
+                 on_winner: OnHandler,
                  small_blind: Chips) => {
 
     let stacks = whos
@@ -716,6 +717,7 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
       return new HeadsUpGame(scheduler,
                              on_new_action,
                              on_new_round,
+                             on_winner,
                              small_blind,
                              stacks,
                              0)
@@ -746,6 +748,7 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
     readonly scheduler: Scheduler,
     readonly _on_new_action: OnHandler,
     readonly on_new_round: OnHandler,
+    readonly on_winner: OnHandler,
     readonly small_blind: Chips,
     readonly stacks: [Chips, Chips],
     turn: number) {
@@ -776,6 +779,8 @@ export class HeadsUpGame implements HasLeftStacks, MightHaveWinner {
     this.fold_after = Date.now() + 35000
 
     if (this.winner) {
+      this.on_winner()
+      return
     } else if (this.round.winner) {
       this.schedule_new_round()
     }
